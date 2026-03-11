@@ -1,0 +1,5 @@
+celery[redis]
+boto3
+numpy
+tritonclient[all]
+pydantic-settings

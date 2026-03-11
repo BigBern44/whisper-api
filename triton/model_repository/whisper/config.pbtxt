@@ -1,0 +1,47 @@
+name: "whisper"
+backend: "python"
+max_batch_size: 0
+
+input [
+  {
+    name: "audio_path"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  },
+  {
+    name: "language"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+    optional: true
+  }
+]
+
+output [
+  {
+    name: "transcription"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  }
+]
+
+instance_group [
+  {
+    count: 2
+    kind: KIND_CPU
+  }
+]
+
+parameters: {
+  key: "WHISPER_MODEL"
+  value: { string_value: "tiny" }
+}
+
+parameters: {
+  key: "WHISPER_DEVICE"
+  value: { string_value: "cpu" }
+}
+
+parameters: {
+  key: "WHISPER_COMPUTE_TYPE"
+  value: { string_value: "int8" }
+}
