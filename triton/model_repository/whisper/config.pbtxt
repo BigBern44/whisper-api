@@ -4,15 +4,24 @@ max_batch_size: 0
 
 input [
   {
-    name: "audio_path"
-    data_type: TYPE_STRING
-    dims: [ 1 ]
+    name: "audio_signal"
+    data_type: TYPE_FP32
+    dims: [-1]
+  },
+  {
+    name: "sample_rate"
+    data_type: TYPE_INT32
+    dims: [1]
   },
   {
     name: "language"
     data_type: TYPE_STRING
-    dims: [ 1 ]
-    optional: true
+    dims: [1]
+  },
+  {
+    name: "task"
+    data_type: TYPE_STRING
+    dims: [1]
   }
 ]
 
@@ -20,28 +29,23 @@ output [
   {
     name: "transcription"
     data_type: TYPE_STRING
-    dims: [ 1 ]
+    dims: [1]
   }
 ]
 
 instance_group [
   {
-    count: 2
     kind: KIND_CPU
+    count: 2
   }
 ]
 
 parameters: {
-  key: "WHISPER_MODEL"
-  value: { string_value: "tiny" }
-}
-
-parameters: {
-  key: "WHISPER_DEVICE"
+  key: "device"
   value: { string_value: "cpu" }
 }
 
 parameters: {
-  key: "WHISPER_COMPUTE_TYPE"
+  key: "compute_type"
   value: { string_value: "int8" }
 }

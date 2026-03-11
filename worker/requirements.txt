@@ -1,5 +1,7 @@
 celery[redis]
 boto3
 numpy
-tritonclient[all]
+tritonclient[http]
 pydantic-settings
+soundfile
+librosa
