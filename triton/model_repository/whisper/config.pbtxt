@@ -1,15 +1,15 @@
 name: "whisper"
 backend: "python"
-max_batch_size: 0
+max_batch_size: 8
 
 input [
   {
     name: "audio_signal"
     data_type: TYPE_FP32
-    dims: [-1]
+    dims: [480000]
   },
   {
-    name: "sample_rate"
+    name: "audio_len"
     data_type: TYPE_INT32
     dims: [1]
   },
@@ -40,12 +40,7 @@ instance_group [
   }
 ]
 
-parameters: {
-  key: "device"
-  value: { string_value: "cpu" }
-}
-
-parameters: {
-  key: "compute_type"
-  value: { string_value: "int8" }
+dynamic_batching {
+  preferred_batch_size: [2, 4, 8]
+  max_queue_delay_microseconds: 50000
 }
