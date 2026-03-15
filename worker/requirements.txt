@@ -1,5 +1,6 @@
 celery[redis]
 boto3
+botocore
 numpy
 tritonclient[http]
 pydantic-settings

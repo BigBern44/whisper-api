@@ -11,7 +11,7 @@ MAX_SAMPLES = 480_000  # 30s × 16 000 Hz
 class TritonPythonModel:
     def initialize(self, args):
         self.model = WhisperModel(
-            "tiny",
+            "small",
             device="cpu",
             compute_type="int8",
             cpu_threads=4,

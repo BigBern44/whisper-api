@@ -1,4 +1,13 @@
 services:
+
+  whisper-front:
+      build:
+        context: ./front
+        dockerfile: Dockerfile
+      ports:
+        - "5173:80"
+      restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     container_name: whisper-redis
@@ -116,21 +125,21 @@ services:
       - worker
     restart: unless-stopped
 
-  prometheus:
-    image: prom/prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    depends_on:
-      - triton
+  # prometheus:
+  #   image: prom/prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #   depends_on:
+  #     - triton
 
-  grafana:
-    image: grafana/grafana
-    ports:
-      - "3000:3000"
-    depends_on:
-      - prometheus
+  # grafana:
+  #   image: grafana/grafana
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - prometheus
 
 volumes:
   redis_data:
