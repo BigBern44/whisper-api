@@ -32,7 +32,6 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Grain overlay ────────────────────────────────────── */
     body::before {
       content: '';
       position: fixed; inset: 0;
@@ -42,7 +41,6 @@
       z-index: 9999;
     }
 
-    /* ── Layout ───────────────────────────────────────────── */
     .shell {
       min-height: 100vh;
       display: grid;
@@ -52,7 +50,7 @@
       padding: 0 24px;
     }
 
-    /* ── Header ───────────────────────────────────────────── */
+    /* ── Header ── */
     header {
       padding: 36px 0 48px;
       display: flex;
@@ -93,19 +91,15 @@
       letter-spacing: .04em;
     }
 
-    /* ── Main ─────────────────────────────────────────────── */
+    /* ── Main ── */
     main {
       padding: 56px 0 40px;
       display: flex;
       flex-direction: column;
-      gap: 40px;
+      gap: 28px;
     }
 
-    .headline {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+    .headline { display: flex; flex-direction: column; gap: 12px; }
 
     h1 {
       font-size: clamp(2rem, 5vw, 2.9rem);
@@ -114,10 +108,7 @@
       letter-spacing: -.03em;
     }
 
-    h1 em {
-      font-style: normal;
-      color: var(--accent);
-    }
+    h1 em { font-style: normal; color: var(--accent); }
 
     .sub {
       font-family: var(--mono);
@@ -127,7 +118,7 @@
       letter-spacing: .02em;
     }
 
-    /* ── Drop zone ────────────────────────────────────────── */
+    /* ── Drop zone ── */
     .drop-zone {
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -142,14 +133,12 @@
 
     .drop-zone::after {
       content: '';
-      position: absolute;
-      inset: 0;
+      position: absolute; inset: 0;
       background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(212,255,95,.06) 0%, transparent 70%);
       pointer-events: none;
     }
 
-    .drop-zone:hover,
-    .drop-zone.over {
+    .drop-zone:hover, .drop-zone.over {
       border-color: var(--border-hi);
       background: #161616;
     }
@@ -173,21 +162,15 @@
       transition: border-color .2s, transform .2s;
     }
 
-    .drop-zone:hover .drop-icon,
-    .drop-zone.over .drop-icon {
+    .drop-zone:hover .drop-icon, .drop-zone.over .drop-icon {
       border-color: var(--accent);
       transform: translateY(-2px);
     }
 
     .drop-icon svg { stroke: var(--text); transition: stroke .2s; }
-    .drop-zone:hover .drop-icon svg,
-    .drop-zone.over .drop-icon svg { stroke: var(--accent); }
+    .drop-zone:hover .drop-icon svg, .drop-zone.over .drop-icon svg { stroke: var(--accent); }
 
-    .drop-title {
-      font-size: .95rem;
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
+    .drop-title { font-size: .95rem; font-weight: 600; margin-bottom: 6px; }
 
     .drop-hint {
       font-family: var(--mono);
@@ -196,7 +179,7 @@
       letter-spacing: .03em;
     }
 
-    /* ── File preview ─────────────────────────────────────── */
+    /* ── File preview ── */
     .file-preview {
       display: none;
       align-items: center;
@@ -220,33 +203,86 @@
     }
 
     .file-info { flex: 1; overflow: hidden; }
-    .file-name {
-      font-size: .85rem;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .file-size {
-      font-family: var(--mono);
-      font-size: .68rem;
-      color: var(--muted);
-      margin-top: 2px;
-    }
+    .file-name { font-size: .85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-meta { font-family: var(--mono); font-size: .68rem; color: var(--muted); margin-top: 2px; }
 
     .file-remove {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--muted);
-      padding: 4px;
-      border-radius: 4px;
-      transition: color .15s;
-      line-height: 0;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); padding: 4px; border-radius: 4px;
+      transition: color .15s; line-height: 0;
     }
     .file-remove:hover { color: var(--red); }
 
-    /* ── Options ─────────────────────────────────────────── */
+    /* ── Mode selector ── */
+    .mode-label {
+      font-family: var(--mono);
+      font-size: .68rem;
+      color: var(--muted);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .mode-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .mode-btn {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color .2s, background .2s;
+      color: var(--text);
+      font-family: var(--font);
+    }
+
+    .mode-btn:hover { border-color: var(--border-hi); background: #161616; }
+
+    .mode-btn.active {
+      border-color: var(--accent);
+      background: rgba(212,255,95,.05);
+    }
+
+    .mode-btn.disabled-mode {
+      opacity: .35;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .mode-title {
+      font-size: .82rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mode-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      transition: background .2s;
+    }
+
+    .mode-btn.active .mode-dot { background: var(--accent); }
+
+    .mode-desc {
+      font-family: var(--mono);
+      font-size: .67rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Options row ── */
     .options-row {
       display: flex;
       gap: 12px;
@@ -254,11 +290,7 @@
       flex-wrap: wrap;
     }
 
-    .select-wrap {
-      position: relative;
-      flex: 1;
-      min-width: 160px;
-    }
+    .select-wrap { position: relative; flex: 1; min-width: 160px; }
 
     select {
       width: 100%;
@@ -278,14 +310,13 @@
     select:focus { border-color: var(--border-hi); }
 
     .select-arrow {
-      position: absolute;
-      right: 12px; top: 50%;
+      position: absolute; right: 12px; top: 50%;
       transform: translateY(-50%);
       pointer-events: none;
       color: var(--muted);
     }
 
-    /* ── Submit button ────────────────────────────────────── */
+    /* ── Submit ── */
     .btn-submit {
       flex-shrink: 0;
       display: flex;
@@ -305,17 +336,10 @@
       white-space: nowrap;
     }
 
-    .btn-submit:hover:not(:disabled) {
-      background: var(--accent-dim);
-      transform: translateY(-1px);
-    }
+    .btn-submit:hover:not(:disabled) { background: var(--accent-dim); transform: translateY(-1px); }
+    .btn-submit:disabled { opacity: .35; cursor: not-allowed; }
 
-    .btn-submit:disabled {
-      opacity: .35;
-      cursor: not-allowed;
-    }
-
-    /* ── Progress card ────────────────────────────────────── */
+    /* ── Progress ── */
     .progress-card {
       display: none;
       flex-direction: column;
@@ -329,40 +353,20 @@
 
     .progress-card.visible { display: flex; }
 
-    .progress-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
+    .progress-header { display: flex; align-items: center; justify-content: space-between; }
 
     .progress-label {
-      font-size: .82rem;
-      font-weight: 700;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      color: var(--muted);
+      font-size: .82rem; font-weight: 700;
+      letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
     }
 
-    .progress-status {
-      font-family: var(--mono);
-      font-size: .72rem;
-      color: var(--accent);
-      letter-spacing: .05em;
-    }
+    .progress-status { font-family: var(--mono); font-size: .72rem; color: var(--accent); letter-spacing: .05em; }
 
-    .progress-bar-track {
-      height: 3px;
-      background: var(--border);
-      border-radius: 99px;
-      overflow: hidden;
-    }
+    .progress-bar-track { height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; }
 
     .progress-bar-fill {
-      height: 100%;
-      background: var(--accent);
-      border-radius: 99px;
-      width: 0%;
-      transition: width .6s ease;
+      height: 100%; background: var(--accent);
+      border-radius: 99px; width: 0%; transition: width .6s ease;
     }
 
     .progress-bar-fill.indeterminate {
@@ -376,19 +380,13 @@
       100% { transform: translateX(100%); }
     }
 
-    .progress-log {
-      font-family: var(--mono);
-      font-size: .72rem;
-      color: var(--muted);
-      line-height: 1.8;
-    }
-
+    .progress-log { font-family: var(--mono); font-size: .72rem; color: var(--muted); line-height: 1.8; }
     .log-line { animation: fadeUp .2s ease; }
     .log-line.accent { color: var(--accent); }
     .log-line.error  { color: var(--red); }
 
-    /* ── Download card ────────────────────────────────────── */
-    .download-card {
+    /* ── Result card (texte) ── */
+    .result-card {
       display: none;
       flex-direction: column;
       gap: 16px;
@@ -399,13 +397,9 @@
       animation: fadeUp .4s ease;
     }
 
-    .download-card.visible { display: flex; }
+    .result-card.visible { display: flex; }
 
-    .download-top {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    .result-top { display: flex; align-items: center; gap: 12px; }
 
     .check-icon {
       width: 36px; height: 36px;
@@ -421,20 +415,48 @@
       to   { transform: scale(1); opacity: 1; }
     }
 
-    .download-title { font-size: 1rem; font-weight: 700; }
-    .download-sub   {
+    .result-title { font-size: 1rem; font-weight: 700; }
+    .result-sub { font-family: var(--mono); font-size: .72rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Text preview ── */
+    .text-preview {
+      background: #0d0d0d;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      max-height: 280px;
+      overflow-y: auto;
       font-family: var(--mono);
-      font-size: .72rem;
-      color: var(--muted);
-      margin-top: 2px;
+      font-size: .75rem;
+      line-height: 1.9;
+      color: #c8c4bc;
+      white-space: pre-wrap;
+      word-break: break-word;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-hi) transparent;
     }
 
+    .text-preview::-webkit-scrollbar { width: 4px; }
+    .text-preview::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 4px; }
+
+    .preview-label {
+      font-family: var(--mono);
+      font-size: .65rem;
+      color: var(--muted);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    /* ── Buttons ── */
+    .btn-row { display: flex; gap: 10px; }
+
     .btn-download {
+      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      width: 100%;
       background: var(--accent);
       color: #0a0a0a;
       border: none;
@@ -449,10 +471,28 @@
       letter-spacing: .01em;
     }
 
-    .btn-download:hover {
-      background: var(--accent-dim);
-      transform: translateY(-1px);
+    .btn-download:hover { background: var(--accent-dim); transform: translateY(-1px); }
+
+    .btn-copy {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: .82rem;
+      font-weight: 600;
+      padding: 13px 18px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: border-color .15s, color .15s;
+      white-space: nowrap;
     }
+
+    .btn-copy:hover { border-color: var(--border-hi); }
+    .btn-copy.copied { border-color: var(--accent); color: var(--accent); }
 
     .btn-reset {
       background: none;
@@ -470,7 +510,7 @@
 
     .btn-reset:hover { border-color: var(--border-hi); color: var(--text); }
 
-    /* ── Error banner ─────────────────────────────────────── */
+    /* ── Error ── */
     .error-banner {
       display: none;
       align-items: center;
@@ -487,7 +527,7 @@
 
     .error-banner.visible { display: flex; }
 
-    /* ── Footer ───────────────────────────────────────────── */
+    /* ── Footer ── */
     footer {
       padding: 24px 0 32px;
       border-top: 1px solid var(--border);
@@ -496,53 +536,46 @@
       justify-content: space-between;
     }
 
-    .footer-left {
+    .footer-left, .footer-right {
       font-family: var(--mono);
       font-size: .68rem;
       color: var(--muted);
       letter-spacing: .04em;
     }
 
-    .footer-right {
-      font-family: var(--mono);
-      font-size: .68rem;
-      color: var(--muted);
-    }
-
-    /* ── Animations ───────────────────────────────────────── */
+    /* ── Animations ── */
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
     .shell > * { animation: fadeUp .5s ease both; }
-    header      { animation-delay: 0s; }
-    main        { animation-delay: .08s; }
-    footer      { animation-delay: .16s; }
+    header { animation-delay: 0s; }
+    main   { animation-delay: .08s; }
+    footer { animation-delay: .16s; }
   </style>
 </head>
 <body>
 <div class="shell">
 
-  <!-- Header -->
   <header>
     <div class="logo">
       <div class="logo-dot"></div>
       SubSync
     </div>
-    <span class="badge">v2.0 · Whisper</span>
+    <span class="badge">v4.0 · Whisper</span>
   </header>
 
-  <!-- Main -->
   <main>
     <div class="headline">
       <h1>Sous-titrage<br/><em>automatique</em></h1>
-      <p class="sub">// déposez une vidéo · obtenez-la sous-titrée</p>
+      <p class="sub">// vidéo ou audio · choisissez votre format de sortie</p>
     </div>
 
     <!-- Drop zone -->
     <div class="drop-zone" id="dropZone">
-      <input type="file" id="fileInput" accept=".mp4,.mov,.mkv,.webm,.avi" />
+      <input type="file" id="fileInput"
+        accept=".mp4,.mov,.mkv,.webm,.avi,.mp3,.wav,.ogg,.flac,.m4a,.aac" />
       <div class="drop-icon">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -550,13 +583,14 @@
           <line x1="12" y1="3" x2="12" y2="15"/>
         </svg>
       </div>
-      <p class="drop-title">Glissez votre vidéo ici</p>
-      <p class="drop-hint">mp4 · mov · mkv · webm · avi</p>
+      <p class="drop-title">Glissez votre fichier ici</p>
+      <p class="drop-hint">vidéo : mp4 · mov · mkv · webm · avi</p>
+      <p class="drop-hint" style="margin-top:4px">audio : mp3 · wav · ogg · flac · m4a · aac</p>
     </div>
 
     <!-- File preview -->
     <div class="file-preview" id="filePreview">
-      <div class="file-thumb">
+      <div class="file-thumb" id="fileThumb">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <rect x="2" y="3" width="20" height="14" rx="2"/>
           <path d="M8 21h8M12 17v4"/>
@@ -564,13 +598,32 @@
       </div>
       <div class="file-info">
         <div class="file-name" id="fileName">—</div>
-        <div class="file-size" id="fileSize">—</div>
+        <div class="file-meta" id="fileMeta">—</div>
       </div>
       <button class="file-remove" id="fileRemove" title="Retirer">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
       </button>
+    </div>
+
+    <!-- Mode selector -->
+    <div>
+      <p class="mode-label">Format de sortie</p>
+      <div class="mode-group">
+        <button class="mode-btn" data-mode="embed" id="modeEmbed">
+          <span class="mode-title"><span class="mode-dot"></span>Vidéo sous-titrée</span>
+          <span class="mode-desc">Sous-titres intégrés dans la vidéo (soft). Vidéo uniquement.</span>
+        </button>
+        <button class="mode-btn active" data-mode="srt" id="modeSrt">
+          <span class="mode-title"><span class="mode-dot"></span>Fichier SRT</span>
+          <span class="mode-desc">Texte avec timestamps.<br/>Vidéo et audio.</span>
+        </button>
+        <button class="mode-btn" data-mode="text" id="modeText">
+          <span class="mode-title"><span class="mode-dot"></span>Texte brut</span>
+          <span class="mode-desc">Transcription sans timestamps. Vidéo et audio.</span>
+        </button>
+      </div>
     </div>
 
     <!-- Options + submit -->
@@ -594,7 +647,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="5 3 19 12 5 21 5 3"/>
         </svg>
-        Sous-titrer
+        Lancer
       </button>
     </div>
 
@@ -616,33 +669,47 @@
       <div class="progress-log" id="progressLog"></div>
     </div>
 
-    <!-- Download -->
-    <div class="download-card" id="downloadCard">
-      <div class="download-top">
+    <!-- Result card -->
+    <div class="result-card" id="resultCard">
+      <div class="result-top">
         <div class="check-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
         </div>
         <div>
-          <div class="download-title">Vidéo prête !</div>
-          <div class="download-sub" id="downloadSub">sous-titres intégrés</div>
+          <div class="result-title" id="resultTitle">Terminé !</div>
+          <div class="result-sub" id="resultSub">—</div>
         </div>
       </div>
-      <a class="btn-download" id="btnDownload" href="#" download>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-        Télécharger la vidéo
-      </a>
-      <button class="btn-reset" id="btnReset">Traiter une autre vidéo</button>
+
+      <!-- Prévisualisation texte (srt / text uniquement) -->
+      <div id="previewSection" style="display:none">
+        <p class="preview-label" id="previewLabel">Aperçu</p>
+        <div class="text-preview" id="textPreview"></div>
+      </div>
+
+      <div class="btn-row">
+        <a class="btn-download" id="btnDownload" href="#" download>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span id="btnDownloadLabel">Télécharger</span>
+        </a>
+        <button class="btn-copy" id="btnCopy" style="display:none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copier
+        </button>
+      </div>
+      <button class="btn-reset" id="btnReset">Traiter un autre fichier</button>
     </div>
 
   </main>
 
-  <!-- Footer -->
   <footer>
     <span class="footer-left">SubSync · Whisper / Triton</span>
     <span class="footer-right">© 2025</span>
@@ -653,11 +720,13 @@
 <script>
   const API = 'http://localhost:8000';
 
+  // DOM refs
   const dropZone       = document.getElementById('dropZone');
   const fileInput      = document.getElementById('fileInput');
   const filePreview    = document.getElementById('filePreview');
+  const fileThumb      = document.getElementById('fileThumb');
   const fileName       = document.getElementById('fileName');
-  const fileSize       = document.getElementById('fileSize');
+  const fileMeta       = document.getElementById('fileMeta');
   const fileRemove     = document.getElementById('fileRemove');
   const langSelect     = document.getElementById('langSelect');
   const btnSubmit      = document.getElementById('btnSubmit');
@@ -665,15 +734,55 @@
   const progressStatus = document.getElementById('progressStatus');
   const progressBar    = document.getElementById('progressBar');
   const progressLog    = document.getElementById('progressLog');
-  const downloadCard   = document.getElementById('downloadCard');
-  const downloadSub    = document.getElementById('downloadSub');
+  const resultCard     = document.getElementById('resultCard');
+  const resultTitle    = document.getElementById('resultTitle');
+  const resultSub      = document.getElementById('resultSub');
+  const previewSection = document.getElementById('previewSection');
+  const previewLabel   = document.getElementById('previewLabel');
+  const textPreview    = document.getElementById('textPreview');
   const btnDownload    = document.getElementById('btnDownload');
+  const btnDownloadLabel = document.getElementById('btnDownloadLabel');
+  const btnCopy        = document.getElementById('btnCopy');
   const btnReset       = document.getElementById('btnReset');
   const errorBanner    = document.getElementById('errorBanner');
   const errorMsg       = document.getElementById('errorMsg');
 
   let selectedFile = null;
+  let selectedMode = 'srt';
   let eventSource  = null;
+  let copiedText   = '';
+
+  const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm', '.avi']);
+  const AUDIO_EXTS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac']);
+
+  // ── Mode selector ────────────────────────────────────────
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedMode = btn.dataset.mode;
+    });
+  });
+
+  function updateModeAvailability() {
+    const embedBtn = document.getElementById('modeEmbed');
+    if (!selectedFile) {
+      embedBtn.classList.remove('disabled-mode');
+      return;
+    }
+    const ext = selectedFile.name.slice(selectedFile.name.lastIndexOf('.')).toLowerCase();
+    const isAudio = AUDIO_EXTS.has(ext);
+
+    if (isAudio) {
+      embedBtn.classList.add('disabled-mode');
+      // Si 'embed' était sélectionné, bascule vers 'srt'
+      if (selectedMode === 'embed') {
+        document.getElementById('modeSrt').click();
+      }
+    } else {
+      embedBtn.classList.remove('disabled-mode');
+    }
+  }
 
   // ── Drag & drop ──────────────────────────────────────────
   dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
@@ -694,10 +803,12 @@
   function setFile(f) {
     selectedFile = f;
     fileName.textContent = f.name;
-    fileSize.textContent = formatBytes(f.size);
+    fileMeta.textContent = formatBytes(f.size) + ' · ' + getFileType(f.name);
+    updateFileThumb(f.name);
     filePreview.classList.add('visible');
     dropZone.style.display = 'none';
     btnSubmit.disabled = false;
+    updateModeAvailability();
     hideError();
   }
 
@@ -707,6 +818,24 @@
     filePreview.classList.remove('visible');
     dropZone.style.display = '';
     btnSubmit.disabled = true;
+    updateModeAvailability();
+  }
+
+  function getFileType(name) {
+    const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
+    return AUDIO_EXTS.has(ext) ? 'audio' : 'vidéo';
+  }
+
+  function updateFileThumb(name) {
+    const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
+    const isAudio = AUDIO_EXTS.has(ext);
+    fileThumb.innerHTML = isAudio
+      ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+         </svg>`
+      : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+           <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+         </svg>`;
   }
 
   function formatBytes(b) {
@@ -721,17 +850,20 @@
     hideError();
     startProgress('UPLOAD…');
 
-    // 1. Upload de la vidéo
     const form = new FormData();
     form.append('file', selectedFile);
     const lang    = langSelect.value;
-    const postUrl = lang ? `${API}/subtitles?language=${lang}` : `${API}/subtitles`;
+    let   postUrl = `${API}/subtitles?mode=${selectedMode}`;
+    if (lang) postUrl += `&language=${lang}`;
 
     let jobId;
     try {
-      log('Envoi de la vidéo…');
+      log('Envoi du fichier…');
       const res = await fetch(postUrl, { method: 'POST', body: form });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
       const data = await res.json();
       jobId = data.job_id;
       log(`Job créé <span class="accent">${jobId.slice(0, 8)}…</span>`);
@@ -741,27 +873,24 @@
       return;
     }
 
-    // 2. Ouverture du SSE — connexion unique, pas de polling
     log('En attente du traitement…');
     setStatus('TRAITEMENT…');
 
     eventSource = new EventSource(`${API}/subtitles/${jobId}/stream`);
 
-    // Confirmation de connexion au serveur
     eventSource.addEventListener('connected', () => {
       log('Flux connecté, traitement en cours…');
     });
 
-    // Webhook reçu → traitement terminé
-    eventSource.addEventListener('done', e => {
+    eventSource.addEventListener('done', async e => {
       eventSource.close();
       eventSource = null;
-      log('<span class="accent">✓ Sous-titres intégrés</span>');
+      const downloadUrl = e.data;
+      log('<span class="accent">✓ Traitement terminé</span>');
       stopProgress(true);
-      showDownload(e.data, selectedFile.name);
+      await showResult(downloadUrl, selectedFile.name, selectedMode);
     });
 
-    // Erreur remontée par le webhook
     eventSource.addEventListener('error', e => {
       eventSource.close();
       eventSource = null;
@@ -771,7 +900,6 @@
       stopProgress();
     });
 
-    // Coupure réseau / timeout
     eventSource.onerror = () => {
       if (eventSource && eventSource.readyState === EventSource.CLOSED) {
         showError('La connexion au serveur a été interrompue.');
@@ -781,14 +909,14 @@
     };
   });
 
-  // ── Progress helpers ─────────────────────────────────────
+  // ── Progress ─────────────────────────────────────────────
   function startProgress(label = 'TRAITEMENT…') {
     progressCard.classList.add('visible');
     progressLog.innerHTML = '';
     progressBar.classList.add('indeterminate');
     setStatus(label);
     btnSubmit.disabled = true;
-    downloadCard.classList.remove('visible');
+    resultCard.classList.remove('visible');
     hideError();
   }
 
@@ -799,9 +927,7 @@
     if (!success) btnSubmit.disabled = !selectedFile;
   }
 
-  function setStatus(label) {
-    progressStatus.textContent = label;
-  }
+  function setStatus(label) { progressStatus.textContent = label; }
 
   function log(html) {
     const line = document.createElement('div');
@@ -811,37 +937,97 @@
     progressLog.scrollTop = progressLog.scrollHeight;
   }
 
-  // ── Download ─────────────────────────────────────────────
-  function showDownload(url, originalName) {
-    const ext  = originalName.slice(originalName.lastIndexOf('.'));
-    const name = originalName.replace(ext, `_subtitled${ext}`);
-    btnDownload.href        = url;
-    btnDownload.download    = name;
-    downloadSub.textContent = name;
-    downloadCard.classList.add('visible');
+  // ── Result ───────────────────────────────────────────────
+  async function showResult(url, originalName, mode) {
     progressCard.classList.remove('visible');
+
+    const baseName = originalName.replace(/\.[^.]+$/, '');
+
+    if (mode === 'embed') {
+      const ext = originalName.slice(originalName.lastIndexOf('.'));
+      const dlName = `${baseName}_subtitled${ext}`;
+      resultTitle.textContent = 'Vidéo prête !';
+      resultSub.textContent   = dlName;
+      btnDownload.href        = url;
+      btnDownload.download    = dlName;
+      btnDownloadLabel.textContent = 'Télécharger la vidéo';
+      previewSection.style.display = 'none';
+      btnCopy.style.display        = 'none';
+
+    } else if (mode === 'srt') {
+      const dlName = `${baseName}.srt`;
+      resultTitle.textContent  = 'Sous-titres prêts !';
+      resultSub.textContent    = dlName;
+      btnDownload.href         = url;
+      btnDownload.download     = dlName;
+      btnDownloadLabel.textContent = 'Télécharger le fichier SRT';
+      previewLabel.textContent = 'Aperçu SRT';
+
+      // Charge et affiche le contenu
+      try {
+        const text = await fetch(url).then(r => r.text());
+        copiedText = text;
+        textPreview.textContent  = text;
+        previewSection.style.display = '';
+        btnCopy.style.display        = '';
+      } catch {
+        previewSection.style.display = 'none';
+      }
+
+    } else { // text
+      const dlName = `${baseName}.txt`;
+      resultTitle.textContent  = 'Transcription prête !';
+      resultSub.textContent    = dlName;
+      btnDownload.href         = url;
+      btnDownload.download     = dlName;
+      btnDownloadLabel.textContent = 'Télécharger le texte';
+      previewLabel.textContent = 'Aperçu texte';
+
+      try {
+        const text = await fetch(url).then(r => r.text());
+        copiedText = text;
+        textPreview.textContent  = text;
+        previewSection.style.display = '';
+        btnCopy.style.display        = '';
+      } catch {
+        previewSection.style.display = 'none';
+      }
+    }
+
+    resultCard.classList.add('visible');
   }
+
+  // ── Copy ─────────────────────────────────────────────────
+  btnCopy.addEventListener('click', async () => {
+    if (!copiedText) return;
+    try {
+      await navigator.clipboard.writeText(copiedText);
+      btnCopy.classList.add('copied');
+      btnCopy.querySelector('span') && (btnCopy.querySelector('span').textContent = 'Copié !');
+      btnCopy.innerHTML = btnCopy.innerHTML.replace('Copier', 'Copié !');
+      setTimeout(() => {
+        btnCopy.classList.remove('copied');
+        btnCopy.innerHTML = btnCopy.innerHTML.replace('Copié !', 'Copier');
+      }, 2000);
+    } catch {}
+  });
 
   // ── Reset ─────────────────────────────────────────────────
   btnReset.addEventListener('click', () => {
     if (eventSource) { eventSource.close(); eventSource = null; }
     resetFile();
-    downloadCard.classList.remove('visible');
+    resultCard.classList.remove('visible');
     progressCard.classList.remove('visible');
     progressLog.innerHTML = '';
     progressBar.style.width = '0%';
+    textPreview.textContent = '';
+    copiedText = '';
     hideError();
   });
 
   // ── Error ─────────────────────────────────────────────────
-  function showError(msg) {
-    errorMsg.textContent = msg;
-    errorBanner.classList.add('visible');
-  }
-
-  function hideError() {
-    errorBanner.classList.remove('visible');
-  }
+  function showError(msg) { errorMsg.textContent = msg; errorBanner.classList.add('visible'); }
+  function hideError()    { errorBanner.classList.remove('visible'); }
 </script>
 </body>
 </html>

@@ -16,9 +16,18 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
-def send_transcription_task(s3_key: str, language: str | None = None, callback_url: str | None = None):
+def send_transcription_task(
+    s3_key: str,
+    language: str | None = None,
+    callback_url: str | None = None,
+    mode: str = "embed",
+):
     return celery_app.send_task(
         "transcribe_audio",
         args=[s3_key],
-        kwargs={"language": language, "callback_url": callback_url},
+        kwargs={
+            "language":     language,
+            "callback_url": callback_url,
+            "mode":         mode,
+        },
     )

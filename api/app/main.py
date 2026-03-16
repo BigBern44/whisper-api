@@ -27,24 +27,46 @@ s3_public = boto3.client(
     aws_secret_access_key=settings.s3_secret_key,
 )
 
-ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac"}
+ALLOWED_EXTENSIONS = VIDEO_EXTENSIONS | AUDIO_EXTENSIONS
+
 CONTENT_TYPES = {
+    # vidéo
     ".mp4":  "video/mp4",
     ".mov":  "video/quicktime",
     ".mkv":  "video/x-matroska",
     ".webm": "video/webm",
     ".avi":  "video/x-msvideo",
+    # audio
+    ".mp3":  "audio/mpeg",
+    ".wav":  "audio/wav",
+    ".ogg":  "audio/ogg",
+    ".flac": "audio/flac",
+    ".m4a":  "audio/mp4",
+    ".aac":  "audio/aac",
 }
+
+# Modes de sortie disponibles
+OUTPUT_MODES = {"embed", "srt", "text"}
+# Modes interdits pour les fichiers audio (on ne peut pas ré-intégrer dans un audio)
+AUDIO_FORBIDDEN_MODES = {"embed"}
 
 app = FastAPI(
     title="Whisper Video Subtitling API",
-    description="API de sous-titrage vidéo asynchrone avec Whisper",
-    version="3.0.0",
+    description="API de sous-titrage vidéo/audio asynchrone avec Whisper",
+    version="4.0.0",
 )
+
+_cors_origins: list[str] = list(settings.cors_origins) if settings.cors_origins else []
+# Toujours autoriser le dev front Vite en local
+for _origin in ["http://localhost:5173", "http://127.0.0.1:5173"]:
+    if _origin not in _cors_origins:
+        _cors_origins.append(_origin)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -68,13 +90,15 @@ def _get_queue(job_id: str) -> asyncio.Queue:
 # Helpers S3
 # ─────────────────────────────────────────────────────────────────────────────
 
-def upload_video_to_s3(file_bytes: bytes, file_ext: str) -> str:
-    key = f"video/pending/{uuid.uuid4()}{file_ext}"
+def upload_file_to_s3(file_bytes: bytes, file_ext: str) -> str:
+    """Stocke le fichier source (vidéo ou audio) dans MinIO."""
+    prefix = "video" if file_ext in VIDEO_EXTENSIONS else "audio"
+    key = f"{prefix}/pending/{uuid.uuid4()}{file_ext}"
     s3_client.put_object(
         Bucket=settings.s3_bucket,
         Key=key,
         Body=file_bytes,
-        ContentType=CONTENT_TYPES.get(file_ext, "video/mp4"),
+        ContentType=CONTENT_TYPES.get(file_ext, "application/octet-stream"),
     )
     return key
 
@@ -95,26 +119,61 @@ def make_presigned_url(output_key: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.post("/subtitles", response_model=TranscribeResponse, tags=["Subtitling"])
-async def submit_video(
+async def submit_file(
     file: UploadFile,
     language: str | None = Query(None, description="Code langue ISO (fr, en, etc.)"),
+    mode: str = Query(
+        "embed",
+        description=(
+            "Mode de sortie : "
+            "'embed' = vidéo avec sous-titres intégrés (vidéo uniquement), "
+            "'srt' = fichier SRT avec timestamps, "
+            "'text' = texte brut sans timestamps"
+        ),
+    ),
 ):
-    """Soumet une vidéo pour sous-titrage asynchrone."""
+    """
+    Soumet une vidéo ou un fichier audio pour sous-titrage asynchrone.
+
+    - **embed** : réintègre les sous-titres dans la vidéo (soft subtitles). Vidéo uniquement.
+    - **srt**   : retourne un fichier `.srt` avec timestamps. Vidéo et audio.
+    - **text**  : retourne un fichier `.txt` avec le texte brut. Vidéo et audio.
+    """
     if not file.filename:
         raise HTTPException(400, "Fichier requis")
 
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(400, f"Format non supporté. Formats acceptés : {', '.join(ALLOWED_EXTENSIONS)}")
+        raise HTTPException(
+            400,
+            f"Format non supporté. Formats acceptés : {', '.join(sorted(ALLOWED_EXTENSIONS))}",
+        )
+
+    if mode not in OUTPUT_MODES:
+        raise HTTPException(
+            400,
+            f"Mode invalide. Valeurs acceptées : {', '.join(OUTPUT_MODES)}",
+        )
+
+    is_audio = ext in AUDIO_EXTENSIONS
+    if is_audio and mode in AUDIO_FORBIDDEN_MODES:
+        raise HTTPException(
+            400,
+            "Le mode 'embed' n'est pas disponible pour les fichiers audio. "
+            "Utilisez 'srt' ou 'text'.",
+        )
 
     content = await file.read()
-    s3_key  = upload_video_to_s3(content, ext)
+    s3_key  = upload_file_to_s3(content, ext)
 
-    # Callback URL que la task Celery appellera en fin de traitement
     callback_url = f"{settings.api_internal_url}/internal/webhook"
-    task = send_transcription_task(s3_key, language, callback_url=callback_url)
+    task = send_transcription_task(
+        s3_key,
+        language,
+        callback_url=callback_url,
+        mode=mode,
+    )
 
-    # Pré-crée la queue pour ce job
     _get_queue(task.id)
 
     return TranscribeResponse(job_id=task.id, status=JobStatus.PENDING)
@@ -124,7 +183,11 @@ async def submit_video(
 async def stream_job(job_id: str):
     """
     SSE — connexion unique, bloquée jusqu'à réception du webhook.
-    Événements : `connected`, `done` (presigned URL), `error`.
+
+    Événements :
+    - `connected` : connexion établie
+    - `done`      : traitement terminé, `data` = presigned URL du fichier de sortie
+    - `error`     : erreur, `data` = message
     """
     queue = _get_queue(job_id)
 
@@ -132,7 +195,6 @@ async def stream_job(job_id: str):
         try:
             yield f"event: connected\ndata: {job_id}\n\n"
 
-            # Bloque jusqu'au webhook (timeout 30 min)
             try:
                 message = await asyncio.wait_for(queue.get(), timeout=1800)
             except asyncio.TimeoutError:
@@ -165,7 +227,8 @@ async def stream_job(job_id: str):
 async def webhook(request: Request):
     """
     Reçoit le résultat de la task Celery et débloque le SSE correspondant.
-    Body JSON : { "job_id": str, "status": "done"|"error", "output_s3_key"?: str, "error"?: str }
+    Body JSON :
+      { "job_id": str, "status": "done"|"error", "output_s3_key"?: str, "error"?: str }
     """
     body   = await request.json()
     job_id = body.get("job_id")
@@ -200,11 +263,18 @@ async def get_job(job_id: str):
         "SUCCESS": JobStatus.COMPLETED,
         "FAILURE": JobStatus.FAILED,
     }
-    response = JobStatusResponse(job_id=job_id, status=status_map.get(task.state, JobStatus.PENDING))
+    response = JobStatusResponse(
+        job_id=job_id,
+        status=status_map.get(task.state, JobStatus.PENDING),
+    )
 
     if task.state == "SUCCESS":
         output_key = task.result.get("output_s3_key", "")
-        response.result = {"text": task.result.get("text"), "download_url": make_presigned_url(output_key)}
+        response.result = {
+            "text":         task.result.get("text"),
+            "mode":         task.result.get("mode"),
+            "download_url": make_presigned_url(output_key),
+        }
     elif task.state == "FAILURE":
         response.error = str(task.result)
 
@@ -234,4 +304,9 @@ async def health_check():
 
 @app.get("/", tags=["Health"])
 async def root():
-    return {"message": "Whisper Video Subtitling API", "docs": "/docs", "health": "/health"}
+    return {
+        "message": "Whisper Video Subtitling API",
+        "version": "4.0.0",
+        "docs":    "/docs",
+        "health":  "/health",
+    }

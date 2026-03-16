@@ -17,19 +17,27 @@ from functools import lru_cache
 from botocore.exceptions import ClientError
 from pathlib import Path
 
-SAMPLE_RATE = 16_000
-MAX_SAMPLES  = 480_000   # 30s × 16 000 Hz — longueur fixe pour le batching
+SAMPLE_RATE  = 16_000
+MAX_SAMPLES  = 80_000   # 30s × 16 000 Hz — longueur fixe pour le batching
 MODEL_NAME   = "whisper"
 
-# Extensions vidéo supportées → conteneur de sortie
+# Extensions vidéo supportées → (conteneur ffmpeg, codec sous-titres)
 VIDEO_CONTAINERS = {
-    ".mp4":  ("mp4",  "mov_text"),   # subtitle codec mp4
-    ".mov":  ("mov",  "mov_text"),
-    ".mkv":  ("matroska", "srt"),    # subtitle codec mkv
-    ".webm": ("webm", "webvtt"),
-    ".avi":  ("avi",  "srt"),
+    ".mp4":  ("mp4",       "mov_text"),
+    ".mov":  ("mov",       "mov_text"),
+    ".mkv":  ("matroska",  "srt"),
+    ".webm": ("webm",      "webvtt"),
+    ".avi":  ("avi",       "srt"),
 }
 DEFAULT_CONTAINER = ("mp4", "mov_text")
+
+# Extensions audio (traitement direct, sans extraction vidéo)
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac"}
+
+# Modes de sortie
+MODE_EMBED = "embed"   # vidéo avec sous-titres intégrés (soft)
+MODE_SRT   = "srt"     # fichier .srt avec timestamps
+MODE_TEXT  = "text"    # fichier .txt texte brut sans timestamps
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -48,21 +56,20 @@ def get_triton_client() -> httpclient.InferenceServerClient:
 def extract_audio_from_video(video_path: str, target_sr: int = SAMPLE_RATE) -> np.ndarray:
     """
     Extrait la piste audio d'une vidéo via ffmpeg et retourne un tableau numpy
-    float32 mono à `target_sr` Hz.
-    Requiert ffmpeg installé sur la machine.
+    float32 mono à `target_sr` Hz. Requiert ffmpeg installé.
     """
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         wav_path = tmp.name
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             [
                 "ffmpeg", "-y",
                 "-i", video_path,
-                "-vn",                      # pas de flux vidéo
-                "-acodec", "pcm_f32le",     # PCM float 32 bits little-endian
-                "-ar", str(target_sr),      # fréquence cible
-                "-ac", "1",                 # mono
+                "-vn",
+                "-acodec", "pcm_f32le",
+                "-ar", str(target_sr),
+                "-ac", "1",
                 wav_path,
             ],
             check=True,
@@ -81,14 +88,16 @@ def extract_audio_from_video(video_path: str, target_sr: int = SAMPLE_RATE) -> n
     return audio.astype(np.float32)
 
 
-def decode_audio(audio_bytes: bytes, target_sr: int = SAMPLE_RATE) -> np.ndarray:
-    """Décode un fichier audio brut (non vidéo) depuis des bytes."""
-    buf = io.BytesIO(audio_bytes)
+def decode_audio_file(audio_path: str, target_sr: int = SAMPLE_RATE) -> np.ndarray:
+    """
+    Décode un fichier audio (mp3, wav, flac, ogg, m4a, aac…) depuis le disque.
+    Retourne un tableau float32 mono à `target_sr` Hz.
+    """
     try:
-        audio, sr = sf.read(buf, dtype="float32", always_2d=False)
+        audio, sr = sf.read(audio_path, dtype="float32", always_2d=False)
     except Exception:
-        buf.seek(0)
-        audio, sr = librosa.load(buf, sr=None, mono=True, dtype=np.float32)
+        # Fallback : passe par librosa (gère mp3, m4a, aac via ffmpeg)
+        audio, sr = librosa.load(audio_path, sr=None, mono=True, dtype=np.float32)
 
     if audio.ndim == 2:
         audio = audio.mean(axis=1)
@@ -101,23 +110,21 @@ def decode_audio(audio_bytes: bytes, target_sr: int = SAMPLE_RATE) -> np.ndarray
 
 def split_audio_chunks(audio: np.ndarray, max_samples: int = MAX_SAMPLES) -> list[tuple[np.ndarray, int, float]]:
     """
-    Découpe l'audio en chunks de max_samples avec un overlap de 1s pour éviter
-    de couper des mots en plein milieu.
+    Découpe l'audio en chunks de max_samples avec un overlap de 1s.
     Retourne une liste de (chunk_padded, real_len, offset_seconds).
     """
-    overlap    = SAMPLE_RATE          # 1 seconde d'overlap
-    step       = max_samples - overlap
-    total      = len(audio)
-    chunks     = []
-    pos        = 0
+    overlap = SAMPLE_RATE          # 1 seconde d'overlap
+    step    = max_samples - overlap
+    total   = len(audio)
+    chunks  = []
+    pos     = 0
 
     while pos < total:
         end      = min(pos + max_samples, total)
         chunk    = audio[pos:end]
         real_len = len(chunk)
 
-        # Padde à max_samples pour que Triton reçoive toujours la même shape
-        padded         = np.zeros(max_samples, dtype=np.float32)
+        padded            = np.zeros(max_samples, dtype=np.float32)
         padded[:real_len] = chunk
 
         chunks.append((padded, real_len, pos / SAMPLE_RATE))
@@ -131,8 +138,8 @@ def merge_segments(chunks_segments: list[tuple[list[dict], float]]) -> tuple[str
     Fusionne les segments de plusieurs chunks en ajustant les timestamps.
     Déduplique les segments qui chevauchent la zone d'overlap.
     """
-    all_segments: list[dict] = []
-    full_text_parts: list[str] = []
+    all_segments:    list[dict] = []
+    full_text_parts: list[str]  = []
 
     for segments, offset in chunks_segments:
         for seg in segments:
@@ -140,7 +147,6 @@ def merge_segments(chunks_segments: list[tuple[list[dict], float]]) -> tuple[str
             end   = float(seg["end"])   + offset
             text  = seg["text"].strip()
 
-            # Déduplique : ignore si ce segment chevauche trop le dernier ajouté
             if all_segments and start < all_segments[-1]["end"] - 0.1:
                 continue
 
@@ -151,11 +157,11 @@ def merge_segments(chunks_segments: list[tuple[list[dict], float]]) -> tuple[str
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Subtitle helpers
+# Subtitle formatters
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _ts(seconds: float) -> str:
-    """Formate des secondes en timestamp SRT  HH:MM:SS,mmm"""
+    """Formate des secondes en timestamp SRT : HH:MM:SS,mmm"""
     h  = int(seconds // 3600)
     m  = int((seconds % 3600) // 60)
     s  = int(seconds % 60)
@@ -165,9 +171,8 @@ def _ts(seconds: float) -> str:
 
 def segments_to_srt(segments: list[dict]) -> str:
     """
-    Convertit une liste de segments Whisper
+    Convertit une liste de segments Whisper en chaîne SRT valide.
     [{"start": float, "end": float, "text": str}, ...]
-    en chaîne SRT valide.
     """
     blocks = []
     for i, seg in enumerate(segments, start=1):
@@ -178,26 +183,32 @@ def segments_to_srt(segments: list[dict]) -> str:
     return "\n\n".join(blocks) + "\n"
 
 
+def segments_to_plain_text(segments: list[dict]) -> str:
+    """Retourne le texte brut, un segment par ligne, sans timestamps."""
+    return "\n".join(seg["text"].strip() for seg in segments if seg["text"].strip())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Video helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
 def embed_subtitles(
     video_path: str,
     srt_path: str,
     output_path: str,
     sub_codec: str = "mov_text",
 ) -> None:
-    """
-    Ajoute les sous-titres SRT comme piste soft dans le conteneur vidéo.
-    Les flux audio/vidéo sont copiés sans ré-encodage.
-    """
+    """Ajoute les sous-titres SRT comme piste soft dans le conteneur vidéo."""
     try:
         subprocess.run(
             [
                 "ffmpeg", "-y",
                 "-i", video_path,
                 "-i", srt_path,
-                "-map", "0",             # tous les flux de la vidéo originale
-                "-map", "1:0",           # piste de sous-titres
-                "-c", "copy",            # copie sans ré-encodage
-                "-c:s", sub_codec,       # codec sous-titres adapté au conteneur
+                "-map", "0",
+                "-map", "1:0",
+                "-c", "copy",
+                "-c:s", sub_codec,
                 "-metadata:s:s:0", "language=und",
                 "-metadata:s:s:0", "title=Transcription",
                 output_path,
@@ -211,12 +222,27 @@ def embed_subtitles(
         ) from e
 
 
-def _notify_webhook(url: str, job_id: str, status: str, output_s3_key: str = "", error: str = "") -> None:
+# ─────────────────────────────────────────────────────────────────────────────
+# Webhook
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _notify_webhook(
+    url: str,
+    job_id: str,
+    status: str,
+    output_s3_key: str = "",
+    error: str = "",
+) -> None:
     """Appelle le webhook de l'API avec le résultat du job. Silencieux en cas d'échec."""
     try:
         requests.post(
             url,
-            json={"job_id": job_id, "status": status, "output_s3_key": output_s3_key, "error": error},
+            json={
+                "job_id":        job_id,
+                "status":        status,
+                "output_s3_key": output_s3_key,
+                "error":         error,
+            },
             timeout=10,
         )
     except Exception as e:
@@ -234,24 +260,25 @@ def transcribe_video(
     language: str | None = None,
     task: str = "transcribe",
     output_s3_key: str | None = None,
-    callback_url: str | None = None,   # URL webhook à appeler en fin de traitement
+    callback_url: str | None = None,
+    mode: str = MODE_EMBED,
 ):
     """
-    Pipeline complet :
-      1. Télécharge la vidéo depuis S3
-      2. Extrait la piste audio avec ffmpeg
-      3. Transcrit via Whisper/Triton (avec segments horodatés)
-      4. Génère le fichier SRT
-      5. Réintègre les sous-titres dans la vidéo (soft subtitles, sans ré-encodage)
-      6. Upload la vidéo sous-titrée sur S3
-      7. Supprime les fichiers temporaires S3
+    Pipeline de transcription Whisper.
+
+    Modes de sortie (`mode`) :
+    - ``embed`` : réintègre les sous-titres dans la vidéo (soft subtitles, sans ré-encodage).
+                  Requiert un fichier vidéo en entrée.
+    - ``srt``   : génère un fichier SRT avec timestamps et l'uploade sur S3.
+    - ``text``  : génère un fichier texte brut (sans timestamps) et l'uploade sur S3.
 
     Retourne un dict :
-      {
-        "transcription": str,          # texte complet
-        "segments": [...],             # segments horodatés
-        "output_s3_key": str,          # clé S3 de la vidéo sous-titrée
-      }
+    {
+        "text":           str,      # transcription complète
+        "segments":       [...],    # segments horodatés
+        "mode":           str,      # mode utilisé
+        "output_s3_key":  str,      # clé S3 du fichier de sortie
+    }
     """
     s3 = boto3.client(
         "s3",
@@ -260,35 +287,57 @@ def transcribe_video(
         aws_secret_access_key=settings.s3_secret_key,
     )
 
-    ext           = Path(s3_key).suffix.lower()
-    fmt, sub_codec = VIDEO_CONTAINERS.get(ext, DEFAULT_CONTAINER)
+    ext      = Path(s3_key).suffix.lower()
+    is_audio = ext in AUDIO_EXTENSIONS
+    is_video = ext in VIDEO_CONTAINERS
 
-    # Clé S3 de sortie  (ex: "videos/interview_subtitled.mp4")
+    # Sécurité : embed interdit sur audio
+    if is_audio and mode == MODE_EMBED:
+        mode = MODE_SRT
+        logging.warning(
+            f"[{self.request.id}] Mode 'embed' incompatible avec un fichier audio — "
+            f"bascule automatique vers 'srt'."
+        )
+
+    # Clé S3 de sortie
     if output_s3_key is None:
-        stem          = Path(s3_key).stem
-        output_s3_key = str(Path(s3_key).parent / f"{stem}_subtitled{ext}")
+        stem = Path(s3_key).stem
+        parent = Path(s3_key).parent
+        if mode == MODE_EMBED:
+            output_s3_key = str(parent / f"{stem}_subtitled{ext}")
+        elif mode == MODE_SRT:
+            output_s3_key = str(parent / f"{stem}.srt")
+        else:  # text
+            output_s3_key = str(parent / f"{stem}.txt")
 
-    # Fichiers temporaires locaux
     with tempfile.TemporaryDirectory() as tmpdir:
-        video_in   = os.path.join(tmpdir, f"input{ext}")
+        input_file = os.path.join(tmpdir, f"input{ext}")
         srt_file   = os.path.join(tmpdir, "subtitles.srt")
-        video_out  = os.path.join(tmpdir, f"output{ext}")
+        txt_file   = os.path.join(tmpdir, "subtitles.txt")
+
+        if mode == MODE_EMBED:
+            video_out = os.path.join(tmpdir, f"output{ext}")
+            fmt, sub_codec = VIDEO_CONTAINERS.get(ext, DEFAULT_CONTAINER)
 
         try:
             triton = get_triton_client()
 
             # ── 1. Téléchargement S3 ─────────────────────────────────────────
             try:
-                s3.download_file(settings.s3_bucket, s3_key, video_in)
+                s3.download_file(settings.s3_bucket, s3_key, input_file)
             except ClientError as e:
                 if e.response["Error"]["Code"] in ("404", "NoSuchKey"):
                     raise self.retry(exc=e, countdown=5, max_retries=3)
                 raise
 
-            # ── 2. Extraction audio + découpage en chunks ────────────────────
-            audio_signal = extract_audio_from_video(video_in, target_sr=SAMPLE_RATE)
-            chunks       = split_audio_chunks(audio_signal, max_samples=MAX_SAMPLES)
-            logging.info(f"[{self.request.id}] {len(chunks)} chunk(s) à transcrire")
+            # ── 2. Extraction / décodage audio ───────────────────────────────
+            if is_audio:
+                audio_signal = decode_audio_file(input_file, target_sr=SAMPLE_RATE)
+            else:
+                audio_signal = extract_audio_from_video(input_file, target_sr=SAMPLE_RATE)
+
+            chunks = split_audio_chunks(audio_signal, max_samples=MAX_SAMPLES)
+            logging.info(f"[{self.request.id}] {len(chunks)} chunk(s) à transcrire (mode={mode})")
 
             # ── 3. Inférence Triton chunk par chunk ──────────────────────────
             chunks_segments: list[tuple[list[dict], float]] = []
@@ -325,46 +374,89 @@ def transcribe_video(
                 segs = chunk_result.get("segments", [])
 
                 if not segs:
-                    # Fallback : un seul segment pour ce chunk
-                    segs = [{"start": 0.0, "end": real_len / SAMPLE_RATE, "text": chunk_result.get("text", "")}]
+                    segs = [{
+                        "start": 0.0,
+                        "end":   real_len / SAMPLE_RATE,
+                        "text":  chunk_result.get("text", ""),
+                    }]
 
                 chunks_segments.append((segs, offset))
-                logging.info(f"[{self.request.id}] chunk {i+1}/{len(chunks)} transcrit — {len(segs)} segments")
+                logging.info(
+                    f"[{self.request.id}] chunk {i+1}/{len(chunks)} — "
+                    f"{len(segs)} segments"
+                )
 
-            # ── 4. Fusion de tous les segments avec timestamps corrigés ──────
+            # ── 4. Fusion des segments avec timestamps corrigés ───────────────
             full_text, segments = merge_segments(chunks_segments)
 
-            # ── 6. Génération du fichier SRT ─────────────────────────────────
-            srt_content = segments_to_srt(segments)
-            with open(srt_file, "w", encoding="utf-8") as f:
-                f.write(srt_content)
+            # ── 5. Génération du fichier de sortie selon le mode ─────────────
+            if mode == MODE_EMBED:
+                # Génère le SRT puis l'intègre dans la vidéo
+                srt_content = segments_to_srt(segments)
+                with open(srt_file, "w", encoding="utf-8") as f:
+                    f.write(srt_content)
 
-            # ── 7. Intégration des sous-titres dans la vidéo ─────────────────
-            embed_subtitles(video_in, srt_file, video_out, sub_codec=sub_codec)
+                embed_subtitles(input_file, srt_file, video_out, sub_codec=sub_codec)
 
-            # ── 8. Upload S3 de la vidéo sous-titrée ─────────────────────────
+                upload_path = video_out
+                content_type = f"video/{fmt}"
+
+            elif mode == MODE_SRT:
+                # Génère uniquement le fichier SRT
+                srt_content = segments_to_srt(segments)
+                with open(srt_file, "w", encoding="utf-8") as f:
+                    f.write(srt_content)
+
+                upload_path  = srt_file
+                content_type = "text/plain; charset=utf-8"
+
+            else:  # MODE_TEXT
+                # Génère le texte brut sans timestamps
+                plain_text = segments_to_plain_text(segments)
+                with open(txt_file, "w", encoding="utf-8") as f:
+                    f.write(plain_text)
+
+                upload_path  = txt_file
+                content_type = "text/plain; charset=utf-8"
+
+            # ── 6. Upload S3 du fichier de sortie ────────────────────────────
             s3.upload_file(
-                video_out,
+                upload_path,
                 settings.s3_bucket,
                 output_s3_key,
-                ExtraArgs={"ContentType": f"video/{fmt}"},
+                ExtraArgs={"ContentType": content_type},
             )
 
             task_result = {
                 "text":           full_text,
                 "segments":       segments,
+                "mode":           mode,
                 "output_s3_key":  output_s3_key,
-                "subtitle_codec": sub_codec,
             }
 
-            # ── 9. Webhook → notifie l'API que le job est terminé ─────────────
+            # ── 7. Webhook → notifie l'API ────────────────────────────────────
             if callback_url:
-                _notify_webhook(callback_url, self.request.id, status="done", output_s3_key=output_s3_key)
+                _notify_webhook(
+                    callback_url,
+                    self.request.id,
+                    status="done",
+                    output_s3_key=output_s3_key,
+                )
 
             return task_result
 
+        except Exception as exc:
+            if callback_url:
+                _notify_webhook(
+                    callback_url,
+                    self.request.id,
+                    status="error",
+                    error=str(exc),
+                )
+            raise
+
         finally:
-            # ── 10. Nettoyage de la clé source sur S3 ────────────────────────
+            # ── 8. Nettoyage de la clé source sur S3 ─────────────────────────
             try:
                 s3.head_object(Bucket=settings.s3_bucket, Key=s3_key)
                 s3.delete_object(Bucket=settings.s3_bucket, Key=s3_key)

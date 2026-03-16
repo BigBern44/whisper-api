@@ -6,7 +6,7 @@ input [
   {
     name: "audio_signal"
     data_type: TYPE_FP32
-    dims: [480000]
+    dims: [80000]
   },
   {
     name: "audio_len"
